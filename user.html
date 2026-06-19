@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Upload - BacolHub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        :root { 
+            --primary: #e50914; 
+            --bg: #141414; 
+            --card: #1f1f1f; 
+            --text: #fff; 
+            --border: #333;
+        }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        
+        .upload-card {
+            background: var(--card); width: 100%; max-width: 500px; padding: 40px;
+            border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--border);
+        }
+        
+        h2 { text-align: center; margin-bottom: 30px; }
+        h2 span { color: var(--primary); }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #ccc; font-weight: 500; }
+        
+        input, select, textarea {
+            width: 100%; padding: 12px; background: #000; border: 1px solid var(--border);
+            color: white; border-radius: 6px; font-size: 14px; box-sizing: border-box;
+            transition: 0.3s;
+        }
+        input:focus, textarea:focus { border-color: var(--primary); outline: none; }
+        
+        /* Style untuk Input PIN */        .pin-input { letter-spacing: 5px; font-size: 20px; text-align: center; font-weight: bold; }
+        
+        button {
+            width: 100%; padding: 14px; background: var(--primary); color: white;
+            border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px;
+            transition: 0.3s;
+        }
+        button:hover { background: #b20710; }
+        
+        .back-link { display: block; text-align: center; margin-top: 20px; color: #888; text-decoration: none; font-size: 13px; }
+        .back-link:hover { color: white; }
+        
+        .note { font-size: 12px; color: #666; margin-top: 5px; line-height: 1.4; }
+        
+        /* TOGGLE SWITCH STYLE */
+        .toggle-wrapper {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #2a2a2a; padding: 10px 15px; border-radius: 6px; border: 1px solid var(--border);
+        }
+        .toggle-label { margin-bottom: 0; color: white; }
+        
+        .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555; transition: .4s; border-radius: 22px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        /* Animasi Input PIN */
+        #pinContainer {
+            display: none; overflow: hidden; transition: max-height 0.3s ease-out;
+        }
+        #pinContainer.show { display: block; animation: slideDown 0.3s forwards; }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-card">
+        <h2>Upload <span>Konten</span></h2>
+                <div class="form-group">
+            <label>Judul Video / Album</label>
+            <input type="text" id="uTitle" placeholder="Masukkan judul menarik...">
+        </div>
+
+        <div class="form-group">
+            <label>Link Google Drive / Foto</label>
+            <textarea id="uLink" rows="3" placeholder="Paste link GDrive atau Link Gambar..."></textarea>
+            <p class="note">
+                *Pisahkan link foto dengan koma (,) jika album.<br>
+                *[video] https://drive.google.com/file/d/ID_FILE<br>
+                *[foto] https://lh3.googleusercontent.com/LINK_FOTO
+            </p>
+        </div>
+
+        <div class="form-group">
+            <label>Kategori</label>
+            <select id="uCategory">
+                <option value="Ngentod">Ngentod</option>
+                <option value="Colmek">Colmek</option>
+                <option value="Bocil">Bocil</option>
+                <option value="Bugil">Bugil</option>
+                <option value="Foto">Foto Album</option>
+            </select>
+        </div>
+
+        <!-- TOGGLE PIN SECTION -->
+        <div class="form-group">
+            <div class="toggle-wrapper">
+                <label class="toggle-label">🔒 Kunci Konten dengan PIN?</label>
+                <label class="switch">
+                    <input type="checkbox" id="pinToggle" onchange="togglePinInput()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- INPUT PIN (Hidden by default) -->
+        <div id="pinContainer" class="form-group">
+            <label>Masukkan 6 Digit PIN</label>
+            <input type="tel" id="uPin" class="pin-input" maxlength="6" placeholder="------" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
+            <p class="note">User lain harus memasukkan PIN ini untuk menonton.</p>
+        </div>
+
+        <button onclick="submitContent()">UPLOAD SEKARANG</button>
+        
+        <a href="index.html" class="back-link">← Kembali ke Beranda</a>
+    </div>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAe0u4eZIHigFOzePkaoC9xK4CdwA0tILY",
+            authDomain: "mabes-gacor.firebaseapp.com",
+            projectId: "mabes-gacor",
+            storageBucket: "mabes-gacor.firebasestorage.app",
+            messagingSenderId: "104790328950",
+            appId: "1:104790328950:web:2bd344f16232cbf6ff8157"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Fungsi Toggle Sidebar/Input PIN
+        function togglePinInput() {
+            const checkbox = document.getElementById('pinToggle');
+            const container = document.getElementById('pinContainer');
+            const pinInput = document.getElementById('uPin');
+
+            if (checkbox.checked) {
+                container.classList.add('show');
+                pinInput.focus();
+            } else {
+                container.classList.remove('show');
+                pinInput.value = ''; // Reset nilai jika dimatikan
+            }
+        }
+
+        function submitContent() {
+            const title = document.getElementById('uTitle').value;
+            const rawLink = document.getElementById('uLink').value.trim();
+            const category = document.getElementById('uCategory').value;
+            const isPinActive = document.getElementById('pinToggle').checked;
+            const pinValue = document.getElementById('uPin').value;
+
+            // Validasi Dasar
+            if(!title || !rawLink) {
+                alert("Mohon lengkapi Judul dan Link!");
+                return;
+            }
+
+            // Validasi PIN jika aktif
+            if(isPinActive) {
+                if(pinValue.length !== 6) {
+                    alert("PIN harus terdiri dari 6 digit angka!");
+                    return;
+                }
+            }
+
+            // Proses Link (Sama seperti dashboard admin)            let finalImg = "";
+            let finalData = ""; 
+            let type = "video"; 
+
+            if (category === 'Foto' || rawLink.includes(',') || rawLink.match(/\.(jpeg|jpg|gif|png)/)) {
+                type = "photo";
+                const linksArray = rawLink.split(',').map(s => s.trim()).filter(s => s !== "");
+                finalData = linksArray.join(','); 
+                finalImg = linksArray[0]; 
+            } else {
+                type = "video";
+                // Regex untuk mengambil ID Google Drive
+                const regex = /(?:\/d\/|id=)([a-zA-Z0-9_-]+)/;
+                const match = rawLink.match(regex);
+                if(match) {
+                    finalData = match[1];
+                    finalImg = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                } else {
+                    finalData = rawLink;
+                    finalImg = rawLink;
+                }
+            }
+
+            // LANGSUNG SIMPAN KE DATABASE UTAMA ('videos')
+            const newVideoRef = db.ref('videos').push();
+            
+            const dataObj = {
+                title: title,
+                driveId: finalData,
+                img: finalImg,
+                category: category,
+                type: type,
+                views: 0,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            // Tambahkan PIN hanya jika toggle aktif
+            if(isPinActive) {
+                dataObj.pin = pinValue;
+            }
+
+            newVideoRef.set(dataObj).then(() => {
+                alert("Konten berhasil diupload dan langsung tayang!");
+                window.location.href = "index.html"; // Redirect ke home
+            }).catch(err => {
+                alert("Gagal mengupload: " + err.message);
+            });
+        }
+    </script>
+</body></html>
